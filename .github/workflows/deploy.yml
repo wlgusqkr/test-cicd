@@ -14,24 +14,40 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      # 1. GitHub 리포지토리 체크아웃
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ap-northeast-2  # S3 버킷이 위치한 리전
+      # 2. Node.js 설치 및 의존성 설치
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
 
-    - name: Deploy to S3
-      run: |
-        aws s3 sync ./dist s3://jihyeon-builds-test --delete
-        echo "S3 deployment completed!"
+      - name: Install dependencies
+        run: npm install
 
-    - name: Invalidate CloudFront cache
-      run: |
-        aws cloudfront create-invalidation \
-          --distribution-id YOUR_CLOUDFRONT_DISTRIBUTION_ID \
-          --paths "/*"
-        echo "CloudFront cache invalidation completed!"
+      # 3. 빌드
+      - name: Build project
+        run: npm run build
+
+    # 4. S3에 빌드 결과 업로드
+      - name: Deploy to S3
+        uses: jakejarvis/s3-sync-action@v0.5.1
+        with:
+          args: --delete
+        env:
+          AWS_S3_BUCKET: jihyeon-builds-test
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ap-northeast-2
+          SOURCE_DIR: dist
+
+
+      # 5. CloudFront 캐시 무효화
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation --distribution-id E2K6IJKYFWMPT8 --paths "/*"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
